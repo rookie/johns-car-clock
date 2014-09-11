@@ -2,11 +2,6 @@
   This sketch is a replacement clock for a 1987 Nissan 300zx
   It uses the Adafruit 1.8" TFT LCD, and DS1302 Real Time CLock
  ****************************************************/
-//#define sclk 13
-//#define mosi 11
-#define cs   10
-#define dc   9
-#define rst  0  // you can also connect this to the Arduino reset
 
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7735.h> // Hardware-specific library
@@ -14,17 +9,14 @@
 #include <virtuabotixRTC.h>   
 #include <math.h>
 
-// Creation of the Real Time Clock Object\
-//SCLK -> 2, I/O -> 3, CE -> 4
-virtuabotixRTC myRTC(2, 3, 4);
+const int IndicatorLightPin = A0;      //IN, interior illumination
+const int engineSensor = A1;           //IN, coolant sensor
+const int backlight = 6;               //OUT, backlight
 
-const int IndicatorLightPin = A0;     
-const int engineSensor = A1;
-const int resetButton = A3;
-const int mmButton = 5;
-const int Backlight = 6; 
-const int hhButton = 7;
-const int selectButton = 8;
+const int selectButton = 8;            //IN, press to change mode displayed
+const int hhButton = 7;                //IN, press to increment hour
+const int mmButton = 5;                //IN, press to increment minute
+const int resetButton = A3;            //IN, no function
 
 // variables will change:
 int IndicatorLight = 0;         // variable for reading the pushbutton status
@@ -36,25 +28,21 @@ int select = 0;
 double oldTempSensor = 0;
 int engineTempReadout = 0;
 
-double Thermistor(int RawADC) {
- double Temp;
- //Temp = log(10000.0*((1024.0/RawADC-1))); 
- Temp = log(10000.0/(1024.0/RawADC-1)); // for pull-up configuration
- Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp ))* Temp );
- Temp = Temp - 273.15;            // Convert Kelvin to Celcius
- Temp = (Temp * 9.0)/ 5.0 + 32.0; // Convert Celcius to Fahrenheit
- return Temp;
-}
 
-// Option 2: must use the hardware SPI pins
-// (for UNO thats sclk = 13 and sid = 11) and pin 10 must be
-// an output. This is much faster - also required if you want
-// to use the microSD card (see the image drawing example)
-Adafruit_ST7735 tft = Adafruit_ST7735(cs, dc, rst);
+int16_t fgColor = ST7735_WHITE;
+int16_t bgColor = ST7735_BLACK;
+
+
+// Creation of the Real Time Clock Object\
+//SCLK -> 2, I/O -> 3, CS -> 4
+virtuabotixRTC myRTC(2, 3, 4);
+
+//CS -> 10, DC -> 9, RST -> 0
+Adafruit_ST7735 tft = Adafruit_ST7735(10, 9, 0);
 
 void setup(void) {
   
-  analogWrite(Backlight, 255);
+  analogWrite(backlight, 255);
   
   //Serial.begin(9600);  // for debug
   
@@ -67,6 +55,13 @@ void setup(void) {
   // Virtual Box Library: Set the current date, and time in the following format:
   // seconds, minutes, hours, day of the week, day of the month, month, year
   //myRTC.setDS1302Time(00, 28, 13, 30, 8, 1, 2014);
+  
+  setupLCD();
+
+  runSplashScreen();
+}
+
+void setupLCD() {
   
   // Our supplier changed the 1.8" display slightly after Jan 10, 2012
   // so that the alignment of the TFT had to be shifted by a few pixels
@@ -85,17 +80,13 @@ void setup(void) {
 
   //Serial.println("init");
 
-  tft.fillScreen(ST7735_BLACK);    // Clear the display to black 
+  tft.fillScreen(bgColor);    // Clear the display to black 
   tft.setRotation(3);              // Place the display in landscape 270° Mode
   
-  //tft.drawRect(50, 45 , 5, 24, 0xFFFF);
-  //tft.drawRect(60, 45 , 5, 24, 0xFFFF);
-  //tft.drawTriangle(10, 45, 15, 50, 20, 45, 0xFFFF);
-  // tft print function!
-  //tftPrintDayTime();
-  //delay(2000);
-  //tftdrawCoolant(10, 10);
-  //analogWrite(Backlight, 255);
+}
+
+void runSplashScreen() {
+  
   tftdrawNissan(0,60,0xFFFF,0x0000);
   tftFadeUp(250, 25, 5, 30);
   tftFadeDown(25,250, 5, 30);
@@ -113,6 +104,7 @@ void setup(void) {
   tftdrawJPD(55,60,0x0000,0x0000);
   tftPrintTime(0xFFFF, 0x0000);
   tftFadeUp(250, 25, 5, 30);
+  
 }
 
 void loop() {
@@ -326,28 +318,8 @@ const unsigned char PROGMEM icon16_thermometer[] =
   B00000011, B11000000
 };
 
-//16*16
-static unsigned char PROGMEM icon16_coolant[] =
-{ B00000000,B00000000,
-  B00000001,B00000000,
-  B00000001,B11100000,
-  B00000001,B00000000,
-  B00000001,B11100000,
-  B00000001,B00000000,
-  B00000001,B11100000,
-  B00000001,B00000000,
-  B01100011,B10001100,
-  B10011011,B10110011,
-  B00000000,B00000000,
-  B01100110,B01100110,
-  B10011001,B10011001,
-  B00000000,B00000000,
-  B00000000,B00000000,
-  B00000000,B00000000
-};
-
 //180*27
-static unsigned char PROGMEM icon_nissan[] =
+const unsigned char PROGMEM icon_nissan[] =
 //160*24
 {
 B11111111,B11000000,B00000111,B11100000,B11111100,B00000111,B11111111,B11111111,B11100000,B01111111,B11111111,B11111111,B00000000,B00011111,B11111110,B00000000,B00011111,B11111110,B00000000,B01111111,
@@ -383,7 +355,7 @@ void tftdrawCoolant(int x, int y, int main, int back){
 void tftFadeUp(int first, int last, int value, int dly){
   for(int fadeValue = first ; fadeValue >= last; fadeValue -= value) { 
     // sets the value (range from first to last):
-    analogWrite(Backlight, fadeValue);         
+    analogWrite(backlight, fadeValue);         
     // wait for dly milliseconds to see the dimming effect    
     delay(dly);                            
   } 
@@ -392,7 +364,7 @@ void tftFadeUp(int first, int last, int value, int dly){
 void tftFadeDown(int first, int last, int value, int dly){
 for(int fadeValue = first ; fadeValue <= last; fadeValue += value) { 
     // sets the value (range from 0 to 255):
-    analogWrite(Backlight, fadeValue);         
+    analogWrite(backlight, fadeValue);         
     // wait for 30 milliseconds to see the dimming effect    
     delay(dly);                            
   } 
@@ -412,3 +384,16 @@ void tftdrawJPD(int x, int y, int main, int back)
   tft.drawRect(55+x, 0+y, 5, 25, main);
   tft.fillTriangle(65+x, 0+y, 65+x, 24+y, 77+x, 12+y, main);
 }
+
+
+
+double Thermistor(int RawADC) {
+ double Temp;
+ //Temp = log(10000.0*((1024.0/RawADC-1))); 
+ Temp = log(10000.0/(1024.0/RawADC-1)); // for pull-up configuration
+ Temp = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * Temp * Temp ))* Temp );
+ Temp = Temp - 273.15;            // Convert Kelvin to Celcius
+ Temp = (Temp * 9.0)/ 5.0 + 32.0; // Convert Celcius to Fahrenheit
+ return Temp;
+}
+
