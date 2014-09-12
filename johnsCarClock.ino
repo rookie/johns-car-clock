@@ -19,9 +19,8 @@ const int mmButton = 5;                //IN, press to increment minute
 const int resetButton = A3;            //IN, no function
 
 // variables will change:
-int IndicatorLight = 0;         // variable for reading the pushbutton status
+int indicatorLight = 0;         // variable for reading the pushbutton status
 double engineTempSensor = 0;
-int mode = 0;
 int hh = 0;
 int mm = 0;
 int select = 0;
@@ -29,7 +28,10 @@ double oldTempSensor = 0;
 int engineTempReadout = 0;
 
 
-int16_t fgColor = ST7735_WHITE;
+#define DEFAULT_COLOR   ST7735_WHITE
+#define INDICATOR_COLOR ST7735_CYAN
+
+int16_t fgColor = DEFAULT_COLOR;
 int16_t bgColor = ST7735_BLACK;
 
 
@@ -44,7 +46,7 @@ void setup(void) {
   
   analogWrite(backlight, 255);
   
-  //Serial.begin(9600);  // for debug
+  Serial.begin(9600);  // for debug
   
   // initialize the pushbutton pin as an input:
   //pinMode(IndicatorLightPin, INPUT); 
@@ -87,43 +89,84 @@ void setupLCD() {
 
 void runSplashScreen() {
   
-  tftdrawNissan(0,60,0xFFFF,0x0000);
+  tftdrawNissan(0,60,fgColor,bgColor);
   tftFadeUp(250, 25, 5, 30);
   tftFadeDown(25,250, 5, 30);
-  tftdrawNissan(0,60,0x0000,0x0000);
+  tftdrawNissan(0,60,bgColor,bgColor);
   tft.setCursor(20, 70);  //Set position
-  tft.setTextColor(0xFFFF,0x0000);  //Set font to white, fill negative space
+  tft.setTextColor(fgColor,bgColor);  //Set font to white, fill negative space
   tft.setTextSize(2);
   tft.print("BY");
-  tftdrawJPD(55,60,0xFFFF,0x0000);
+  tftdrawJPD(55,60,fgColor,bgColor);
   tftFadeUp(250, 25, 5, 30);
   tftFadeDown(25,250, 5, 30);
-  tft.setTextColor(0x0000,0x0000);
+  tft.setTextColor(bgColor,bgColor);
   tft.setCursor(20, 70);
   tft.print("BY");
-  tftdrawJPD(55,60,0x0000,0x0000);
-  tftPrintTime(0xFFFF, 0x0000);
+  tftdrawJPD(55,60,bgColor,bgColor);
+  tftPrintTime(true);
   tftFadeUp(250, 25, 5, 30);
   
 }
 
+#define MODE_TIME    0
+#define MODE_NISSAN  1
+#define MODE_COOLANT 2
+#define MODE_COUNT   3          //Helper
+#define MODE_DEFAULT MODE_TIME  //Default
+
 void loop() {
+  static int mode = MODE_DEFAULT;
   
-  myRTC.updateTime();   // Update Time from RAM
+  //myRTC.updateTime();   // Update Time from RAM
   //Serial.print(myRTC.hours);
   //Serial.print(" : ");
   //Serial.println(myRTC.minutes);
   //delay(500);
   
-  if(mode == 0)
+  indicatorLight = analogRead(IndicatorLightPin);
+  if(indicatorLight > 512){
+      fgColor = INDICATOR_COLOR;
+    }
+    else {
+      fgColor = DEFAULT_COLOR;
+    }
+
+  //Check for mode change
+  select = digitalRead(selectButton);
+  if (select == 1){
+    //Remove old one
+    removeMode(mode);
+    
+    mode++;
+    if (mode >= MODE_COUNT) {
+      mode = MODE_DEFAULT;
+    }
+    
+    //Draw new one
+    drawMode(mode);
+  }
+  
+  if (mode == MODE_TIME) {
+  
+     tftPrintTime();
+ 
+    
+  }
+  
+  
+  return;
+  
+  
+  if(mode == 0) //Show clock
   {
-    IndicatorLight = analogRead(IndicatorLightPin);
+    indicatorLight = analogRead(IndicatorLightPin);
     //Serial.println(IndicatorLight);
     //IndicatorLight = 0;
     hh = digitalRead(hhButton);
     mm = digitalRead(mmButton);
   
-    if(IndicatorLight < 1){
+    if(indicatorLight < 1){
       tftPrintTime(0xFFFF, 0x0000);
       delay(100);
     }
@@ -139,7 +182,7 @@ void loop() {
     }
   }
  
-  else if(mode == 1)
+  else if(mode == 1) //Show nissan logo
   {
     tftdrawNissan(0,60,0xFFFF,0x0000);
     select = digitalRead(selectButton);
@@ -150,7 +193,7 @@ void loop() {
     }
     //mode = mode += digitalRead(selectButton);
   }
-  else
+  else //Show coolant temp
   {
     //tftdrawJPD(0,60,0xFFFF,0x0000);
     tftdrawCoolant(20, 55, 0xFFFF, 0x0000);
@@ -196,6 +239,34 @@ void loop() {
 }
 
 
+
+
+
+
+void removeMode(int mode) {
+  
+}
+
+void drawMode(int mode) {
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void tftPrintTemp(int x, int y, int fontColor, int backColor, int point) {   
   
   tft.setTextWrap(false);
@@ -230,53 +301,93 @@ void tftPrintTemp(int x, int y, int fontColor, int backColor, int point) {
       } */
 }
 
+
+
+void updateTime()
+{
+  
+}
+
+
+void tftPrintTime(int oneColor, int anotherColor) {   
+
+}
+
+//"12:36 PM"
+//" 2:36 AM"
+
+void tftPrintTime() {
+  tftPrintTime(false);
+}
+
 // Display the time with chosen font color
-void tftPrintTime(int fontColor, int backColor) {   
+void tftPrintTime(bool shouldUpdate) {   
+  static int lastMins = -1;
+  static uint16_t lastColor = -1;
+  
+  
+  int fontColor = fgColor;
+  int backColor = bgColor;
+  
   myRTC.updateTime();   // Update Time from RAM
-  tft.setTextWrap(false);
-  tft.setCursor(10, 60);  //Set position
-  tft.setTextColor(fontColor,backColor);  //Set font to white, fill negative space
-  tft.setTextSize(3);
-  if (myRTC.hours <= 12){  //Display hours when the time is 12 or less
-    if (myRTC.hours <= 9){ //Add a space if the hour is less than 10
-      tft.print(" ");
-      tft.print(myRTC.hours);
-      tft.print(":");
-    }
-    else{
-        tft.print(myRTC.hours);  //Display hours with 10 or later,But not later than 12 as previously tested
+  
+  if (lastMins != myRTC.minutes) {
+    shouldUpdate = true;
+    lastMins = myRTC.minutes;
+  }
+  
+  if (lastColor != fgColor) {
+    shouldUpdate = true;
+    lastColor = fgColor;
+  }
+  
+  if (shouldUpdate) {
+    tft.setTextWrap(false);
+    tft.setCursor(10, 60);  //Set position
+    tft.setTextColor(fontColor,backColor);  //Set font to white, fill negative space
+    tft.setTextSize(3);
+    if (myRTC.hours <= 12){  //Display hours when the time is 12 or less
+      if (myRTC.hours <= 9){ //Add a space if the hour is less than 10
+        tft.print(" ");
+        tft.print(myRTC.hours);
         tft.print(":");
       }
-    }
-  else{
-    if (myRTC.hours <= 21){   //Display hours with a space if less than 22 and greater than 12 as previously tested
-      tft.print(" ");
-      tft.print(myRTC.hours - 12);
-      tft.print(":");
-    }
-    else{                     //Display raw hours when 22 and over
-      tft.print(myRTC.hours - 12);
-      tft.print(":");
-    }
-    }
-  if (myRTC.minutes < 10){   //Display minutes less than 10 with a leading zero
-    tft.print("0");
-    tft.print(myRTC.minutes);
-    }
-  else{
-    tft.print(myRTC.minutes); //Display minutes 10 and over with no spaces
-    }
-  if (myRTC.hours <= 11){  //Display "AM" from 1AM to 11AM
-    tft.print(" AM  ");
-    }
-  else{
-    if (myRTC.hours <=23){ //Display "PM" from 1PM to 11PM
-    tft.print(" PM  ");
-    }
+      else{
+          tft.print(myRTC.hours);  //Display hours with 10 or later,But not later than 12 as previously tested
+          tft.print(":");
+        }
+      }
     else{
-      tft.print(" AM  ");  //Don't forget 12AM, that weirdo
+      if (myRTC.hours <= 21){   //Display hours with a space if less than 22 and greater than 12 as previously tested
+        tft.print(" ");
+        tft.print(myRTC.hours - 12);
+        tft.print(":");
+      }
+      else{                     //Display raw hours when 22 and over
+        tft.print(myRTC.hours - 12);
+        tft.print(":");
+      }
+      }
+    if (myRTC.minutes < 10){   //Display minutes less than 10 with a leading zero
+      tft.print("0");
+      tft.print(myRTC.minutes);
+      }
+    else{
+      tft.print(myRTC.minutes); //Display minutes 10 and over with no spaces
+      }
+    if (myRTC.hours <= 11){  //Display "AM" from 1AM to 11AM
+      tft.print(" AM  ");
+      }
+    else{
+      if (myRTC.hours <=23){ //Display "PM" from 1PM to 11PM
+      tft.print(" PM  ");
+      }
+      else{
+        tft.print(" AM  ");  //Don't forget 12AM, that weirdo
+      }
     }
-    }
+    Serial.println("Updated time");
+  }
 }
 
 //16x35
