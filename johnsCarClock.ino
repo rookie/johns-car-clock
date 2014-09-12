@@ -115,8 +115,38 @@ void runSplashScreen() {
 #define MODE_COUNT   3          //Helper
 #define MODE_DEFAULT MODE_TIME  //Default
 
+void setBacklight(int value)
+{
+  static int lastBacklightValue = -1;
+  
+  if (lastBacklightValue == value) {
+    value = -1;
+  } else {
+    lastBacklightValue = value;
+  }
+  
+  switch (value) {
+    case 0:
+      //tftFadeUp(250, 150, 5, 30);
+      analogWrite(backlight, 125);        //this is dim
+    break;
+    case 1:
+      //tftFadeDown(150, 250, 5, 30);
+      analogWrite(backlight, 25);         //this is bright
+    break;
+    
+    default:
+    case -1:
+      //nothing
+    break;
+    
+  }
+  
+}
+
 void loop() {
   static int mode = MODE_DEFAULT;
+  static int lastFgColor = -1;
   
   //myRTC.updateTime();   // Update Time from RAM
   //Serial.print(myRTC.hours);
@@ -125,11 +155,14 @@ void loop() {
   //delay(500);
   
   indicatorLight = analogRead(IndicatorLightPin);
+  
   if(indicatorLight > 512){
-      fgColor = INDICATOR_COLOR;
+      //fgColor = INDICATOR_COLOR;
+      setBacklight(0);
     }
     else {
-      fgColor = DEFAULT_COLOR;
+      //fgColor = DEFAULT_COLOR;
+      setBacklight(1);
     }
 
   //Check for mode change
@@ -142,137 +175,130 @@ void loop() {
     if (mode >= MODE_COUNT) {
       mode = MODE_DEFAULT;
     }
+    Serial.print("mode = ");
+    Serial.println(mode);
     
     //Draw new one
     drawMode(mode);
+    
+    delay(500);
+  }
+  
+  if (fgColor != lastFgColor) {
+    drawMode(mode);
+    lastFgColor = fgColor; 
   }
   
   if (mode == MODE_TIME) {
-  
-     tftPrintTime();
- 
+    tftPrintTime();   
+
+    //TODO: fix this
+    hh = digitalRead(hhButton);
+    mm = digitalRead(mmButton);
+    // increment hours if button has been pressed
+    if(hh == 1){                         //Check hh button
+      myRTC.updateTime();                //Update RTC values
+      int hourUpdate = myRTC.hours;      
+      if (hourUpdate < 24){              //When less than 24 increment
+        hourUpdate++;
+      }
+      else{
+        hourUpdate = 1;                  //When 24 rollover (RAM permits erronious values)
+      }
+      myRTC.setDS1302Time(myRTC.seconds, myRTC.minutes, hourUpdate, myRTC.dayofweek, myRTC.dayofmonth, myRTC.month, myRTC.year);  //Set Time with "hourUpdate
+      tftPrintTime(true);   
+      delay(300);
+    }
+    
+    // increment minutes if button has been pressed
+    if(mm == 1){                         //Check mm button
+      myRTC.updateTime();                //Update RTC values
+      int minuteUpdate = myRTC.minutes; 
+      if (minuteUpdate < 59){            //When less than 59 minutes increment
+        minuteUpdate++;
+      }
+      else{
+        minuteUpdate = 1;                //When 59 rollover (RAM permits erronious values)
+      }
+      //delay(250);
+      myRTC.setDS1302Time(myRTC.seconds, minuteUpdate, myRTC.hours, myRTC.dayofweek, myRTC.dayofmonth, myRTC.month, myRTC.year);
+      tftPrintTime(true);   
+      delay(200);
+    }
     
   }
   
-  
-  return;
-  
-  
-  if(mode == 0) //Show clock
-  {
-    indicatorLight = analogRead(IndicatorLightPin);
-    //Serial.println(IndicatorLight);
-    //IndicatorLight = 0;
-    hh = digitalRead(hhButton);
-    mm = digitalRead(mmButton);
-  
-    if(indicatorLight < 1){
-      tftPrintTime(0xFFFF, 0x0000);
-      delay(100);
-    }
-    else {
-      tftPrintTime(0xF800, 0x0000);
-      delay(100);
-    }
-    select = digitalRead(selectButton);
-    if (select == 1){
-      mode++;
-      tft.drawRect(10, 60, 25, 160, 0x0000);
-      //tftPrintTime(0x0000, 0x0000);
-    }
-  }
- 
-  else if(mode == 1) //Show nissan logo
-  {
-    tftdrawNissan(0,60,0xFFFF,0x0000);
-    select = digitalRead(selectButton);
-    if (select == 1){
-      mode++;
-      tftdrawNissan(0,60,0x0000,0x0000);
-      //tft.drawRect(0, 60, 160, 30, 0x0000);
-    }
-    //mode = mode += digitalRead(selectButton);
-  }
-  else //Show coolant temp
-  {
-    //tftdrawJPD(0,60,0xFFFF,0x0000);
-    tftdrawCoolant(20, 55, 0xFFFF, 0x0000);
-    tftPrintTemp(45, 60, 0xFFFF, 0x0000, 3);
-    select = digitalRead(selectButton);
-    if (select == 1){
-      mode=0;
-      tft.fillRect(20, 50, 16, 40, 0x0000);
-    }
-    delay(50);
-    //mode = mode += digitalRead(selectButton);
+  if (mode == MODE_COOLANT) {
+     tftPrintTemp();  
   }
   
-  // increment hours if button has been pressed
-  if(hh == 1){                         //Check hh button
-    myRTC.updateTime();                //Update RTC values
-    int hourUpdate = myRTC.hours;      
-    if (hourUpdate < 24){              //When less than 24 increment
-      hourUpdate++;
-    }
-    else{
-      hourUpdate = 1;                  //When 24 rollover (RAM permits erronious values)
-    }
-    myRTC.setDS1302Time(myRTC.seconds, myRTC.minutes, hourUpdate, myRTC.dayofweek, myRTC.dayofmonth, myRTC.month, myRTC.year);  //Set Time with "hourUpdate
-  }
-  
-  // increment minutes if button has been pressed
-  if(mm == 1){                         //Check mm button
-    myRTC.updateTime();                //Update RTC values
-    int minuteUpdate = myRTC.minutes; 
-    if (minuteUpdate < 59){            //When less than 59 minutes increment
-      minuteUpdate++;
-    }
-    else{
-      minuteUpdate = 1;                //When 59 rollover (RAM permits erronious values)
-    }
-    //delay(250);
-    myRTC.setDS1302Time(myRTC.seconds, minuteUpdate, myRTC.hours, myRTC.dayofweek, myRTC.dayofmonth, myRTC.month, myRTC.year);
-    //delay(400);
-  }
   
   delay(100);
 }
 
-
-
-
-
+void drawMode(int mode) {
+  switch(mode) {
+    case MODE_TIME:
+     tftPrintTime(true);
+    break;
+    case MODE_NISSAN:
+      tftdrawNissan( 0, 60, fgColor, bgColor);
+    break;
+    case MODE_COOLANT:
+      tftdrawCoolant( 20, 55, fgColor, bgColor);
+      tftPrintTemp(true);
+      //tftPrintTemp( 45, 60, fgColor, bgColor, 3);
+    break;
+  }
+}
 
 void removeMode(int mode) {
+  switch(mode) {
+    case MODE_TIME:
+      tft.drawRect(10, 60, 25, 160, bgColor);
+    break;
+    case MODE_NISSAN:
+      tftdrawNissan(0,60,bgColor, bgColor);
+    break;
+    case MODE_COOLANT:
+      tft.fillRect(20, 50, 16, 40, bgColor);
+    break;
+  }
   
 }
 
-void drawMode(int mode) {
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+void tftPrintTemp() {   
+  tftPrintTemp(false);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-void tftPrintTemp(int x, int y, int fontColor, int backColor, int point) {   
+//TODO: fix this
+void tftPrintTemp(int shouldUpdate) {   
+    
+  static int lastCoolantValue = -1;
+  
+  int x = 45;
+  int y = 60;
+  int point = 3;
   
   tft.setTextWrap(false);
   //tft.setCursor(x, y);  //Set position
   tft.setTextSize(point);
   
+  
+  //Read and convert for display
   engineTempSensor = analogRead(engineSensor);
   engineTempSensor = log(10000.0*((1024.0/engineTempSensor-1))); // for pull-up configuration
   engineTempSensor = 1 / (0.001129148 + (0.000234125 + (0.0000000876741 * engineTempSensor * engineTempSensor ))* engineTempSensor );
@@ -282,36 +308,37 @@ void tftPrintTemp(int x, int y, int fontColor, int backColor, int point) {
   engineTempReadout = engineTempSensor / 5;
   engineTempReadout = engineTempReadout * 5;
   
-  tft.setTextColor(fontColor,backColor);  //Set font to white, fill negative space
-        tft.setCursor(x, y);
-        tft.print(engineTempReadout);
-        tft.print("<F ");
-  //Serial.println(oldTempSensor);
-  /*
-      if (oldTempSensor != engineTempSensor){
-        //tft.setCursor(x, y);  //Set position
-        //tft.setTextColor(backColor,backColor);
-        //tft.print(oldTempSensor);
-        //tft.drawRect(10, 60, 160, 25, 0x0000);
-        tft.setTextColor(fontColor,backColor);  //Set font to white, fill negative space
-        tft.setCursor(x, y);
-        tft.print(engineTempSensor);
-        oldTempSensor = engineTempSensor;
-        //Serial.println(engineTempSensor);
-      } */
-}
-
-
-
-void updateTime()
-{
   
+  if (lastCoolantValue != engineTempReadout) {
+    shouldUpdate = true;
+    lastCoolantValue = engineTempReadout;
+  }  
+  
+  if (shouldUpdate) {
+    
+    tft.setTextColor( fgColor, bgColor);
+    tft.setCursor(x, y);
+    tft.print(engineTempReadout);
+    tft.print("<F ");
+    //Serial.println(oldTempSensor);
+    /*
+        if (oldTempSensor != engineTempSensor){
+          //tft.setCursor(x, y);  //Set position
+          //tft.setTextColor(backColor,backColor);
+          //tft.print(oldTempSensor);
+          //tft.drawRect(10, 60, 160, 25, 0x0000);
+          tft.setTextColor(fontColor,backColor);  //Set font to white, fill negative space
+          tft.setCursor(x, y);
+          tft.print(engineTempSensor);
+          oldTempSensor = engineTempSensor;
+          //Serial.println(engineTempSensor);
+        } */
+    
+    Serial.println("Updated temp");
+  }
 }
 
 
-void tftPrintTime(int oneColor, int anotherColor) {   
-
-}
 
 //"12:36 PM"
 //" 2:36 AM"
@@ -320,10 +347,10 @@ void tftPrintTime() {
   tftPrintTime(false);
 }
 
+//TODO: fix this
 // Display the time with chosen font color
 void tftPrintTime(bool shouldUpdate) {   
   static int lastMins = -1;
-  static uint16_t lastColor = -1;
   
   
   int fontColor = fgColor;
@@ -334,11 +361,6 @@ void tftPrintTime(bool shouldUpdate) {
   if (lastMins != myRTC.minutes) {
     shouldUpdate = true;
     lastMins = myRTC.minutes;
-  }
-  
-  if (lastColor != fgColor) {
-    shouldUpdate = true;
-    lastColor = fgColor;
   }
   
   if (shouldUpdate) {
