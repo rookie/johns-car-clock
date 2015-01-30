@@ -21,10 +21,12 @@ const int resetButton = A3;            //IN, no function
 #define MODE_TIME    0
 #define MODE_NISSAN  1
 #define MODE_COOLANT 2
-#define MODE_COUNT   3          //Helper
+#define MODE_LOOP    3          //Must be last. Will loop through lower modes than it
+#define MODE_COUNT   4          //Helper
 #define MODE_DEFAULT MODE_TIME  //Default
 
 int mode = MODE_DEFAULT;
+int loopMode = 0;
   
 int debug_indicator = 0;
   
@@ -198,8 +200,11 @@ void loop() {
     lastFgColor = fgColor; 
   }
   
-  if (mode == MODE_TIME) {
+  if (mode == MODE_TIME || loopMode == MODE_TIME) {
     tftPrintTime();   
+  }  
+  
+  if (mode == MODE_TIME) {
 
     //TODO: fix this
     hh = digitalRead(hhButton);
@@ -237,12 +242,33 @@ void loop() {
     
   }
   
-  if (mode == MODE_COOLANT) {
+  if (mode == MODE_COOLANT || loopMode == MODE_COOLANT) {
      updateTemp();  
   }
   
   if (mode == MODE_NISSAN) {
      if(debug_indicator) updateDebug();
+  }
+  
+  static unsigned long lastMillis = 0;
+  
+  if (mode == MODE_LOOP)
+  {
+    unsigned long currentMillis = millis();
+   
+    if(currentMillis - lastMillis > 15000) {
+      lastMillis = currentMillis;   
+
+      removeMode(loopMode);
+      
+      loopMode++;
+      if (loopMode >= MODE_LOOP) {
+        loopMode = MODE_DEFAULT;
+      }
+      
+      //Draw new one
+      drawMode(loopMode);
+    }
   }
   
   delay(100);
@@ -260,6 +286,9 @@ void drawMode(int mode) {
       tftdrawCoolant( 20, 55, fgColor, bgColor);
       updateTemp(true);
     break;
+    case MODE_LOOP:
+      drawMode(loopMode);
+    break;
   }
 }
 
@@ -273,6 +302,9 @@ void removeMode(int mode) {
     break;
     case MODE_COOLANT:
       tft.fillRect(20, 50, 16, 40, bgColor);
+    break;
+    case MODE_LOOP:
+      removeMode(loopMode);
     break;
   }
   
