@@ -26,7 +26,7 @@ const int resetButton = A3;            //IN, no function
 #define MODE_DEFAULT MODE_TIME  //Default
 
 int mode = MODE_DEFAULT;
-int loopMode = 0;
+int loopMode = -1;
   
 int debug_indicator = 0;
   
@@ -72,6 +72,7 @@ void setup(void) {
 
   mode = getMode(); 
   if(mode >= MODE_COUNT) mode = MODE_DEFAULT;
+  if(mode == MODE_LOOP) loopMode = 0;
   
   runSplashScreen();
   
@@ -103,17 +104,23 @@ void setupLCD() {
 
 void runSplashScreen() {
   
+  //draw Nissan
   tftdrawNissan(0,60,fgColor,bgColor);
   tftFadeUp(250, 25, 5, 30);
   tftFadeDown(25,250, 5, 30);
+  //remove Nissan
   tftdrawNissan(0,60,bgColor,bgColor);
+
+  //draw BY JPD
   tft.setCursor(20, 70);  //Set position
   tft.setTextColor(fgColor,bgColor);  //Set font to white, fill negative space
   tft.setTextSize(2);
   tft.print("BY");
+  //JPD
   tftdrawJPD(55,60,fgColor,bgColor);
   tftFadeUp(250, 25, 5, 30);
   tftFadeDown(25,250, 5, 30);
+  //remove BY JPD
   tft.setTextColor(bgColor,bgColor);
   tft.setCursor(20, 70);
   tft.print("BY");
@@ -200,7 +207,7 @@ void loop() {
     lastFgColor = fgColor; 
   }
   
-  if (mode == MODE_TIME || loopMode == MODE_TIME) {
+  if (mode == MODE_TIME || (mode == MODE_LOOP && loopMode == MODE_TIME)) {
     tftPrintTime();   
   }  
   
@@ -242,7 +249,7 @@ void loop() {
     
   }
   
-  if (mode == MODE_COOLANT || loopMode == MODE_COOLANT) {
+  if (mode == MODE_COOLANT || (mode == MODE_LOOP && loopMode == MODE_COOLANT)) {
      updateTemp();  
   }
   
@@ -320,23 +327,30 @@ void updateTemp() {
 
 void updateTemp(int forceUpdate) {
     
+  static int lastCoolantADC = -1;
   static int lastCoolantValue = -1;
   
   double engineTempADC = 0;
   int engineTempValue = 0;
+  int newDiff = 0;
   
   
   engineTempADC = analogRead(engineSensor);
-  engineTempValue = parseThermistor(engineTempADC);
   
-  if (lastCoolantValue != engineTempValue) {
-    forceUpdate = true;
-    lastCoolantValue = engineTempValue;
+  newDiff = engineTempADC - lastCoolantADC;
+  if(abs(newDiff) > 1) {
+    engineTempValue = parseThermistor(engineTempADC);
+    if (lastCoolantValue != engineTempValue) {
+      forceUpdate = true;
+      lastCoolantADC = engineTempADC;
+      lastCoolantValue = engineTempValue;
+    }
   }  
   
   if (forceUpdate) {
     tftPrintTemp(engineTempValue);
-    Serial.println("Updated temp");
+    //Serial.println("Updated temp");
+    //Serial.println(newDiff);
   }
 }
 
